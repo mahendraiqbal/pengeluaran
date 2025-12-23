@@ -109,7 +109,27 @@ export default function NewTransaction() {
 
       const monthlyExpense = monthlyTransactions?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
-      const message = formatTransactionMessage(type, amountNum, description, newBalance, monthlyExpense);
+      // Calculate total expense for current day
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+      const { data: dailyTransactions } = await supabase
+        .from("transactions")
+        .select("amount")
+        .eq("user_id", user.id)
+        .gte("created_at", startOfDay.toISOString())
+        .lte("created_at", endOfDay.toISOString());
+
+      const dailyExpense = dailyTransactions?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+
+      const message = formatTransactionMessage(
+        type,
+        amountNum,
+        description,
+        newBalance,
+        monthlyExpense,
+        dailyExpense // sudah termasuk transaksi baru yang baru disimpan
+      );
 
       // Send WhatsApp notification if enabled
       const instanceId = settings.waInstanceId || settings.waApiKey;
