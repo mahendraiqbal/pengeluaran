@@ -17,6 +17,7 @@ export default function Settings() {
   const [telegramId, setTelegramId] = useState<string | null>(null);
   const [telegramInput, setTelegramInput] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
+  const [supabaseLoaded, setSupabaseLoaded] = useState(false);
 
   useEffect(() => {
     const supabaseUrl = (window as any).ENV?.SUPABASE_URL;
@@ -38,9 +39,35 @@ export default function Settings() {
     }
 
     setUserId(user.id);
+    loadSettingsFromSupabase(client, user.id);
     loadSettings();
     await loadTelegramId(client, user.id);
     setLoading(false);
+  };
+
+  const loadSettingsFromSupabase = async (client: any, uid: string) => {
+    try {
+      const { data, error } = await client
+        .from("user_profiles")
+        .select("wa_enabled, wa_phone, wa_instance_id, wa_access_token")
+        .eq("id", uid)
+        .single();
+
+      if (error) {
+        console.warn("Supabase settings not found, fallback to localStorage:", error.message);
+        return;
+      }
+
+      // Apply Supabase values if present
+      setWaEnabled(Boolean(data?.wa_enabled));
+      setWaPhone(data?.wa_phone || "");
+      setWaInstanceId(data?.wa_instance_id || "");
+      setWaAccessToken(data?.wa_access_token || "");
+    } catch (err) {
+      console.error("Failed to load settings from Supabase:", err);
+    } finally {
+      setSupabaseLoaded(true);
+    }
   };
 
   const loadTelegramId = async (client: any, id: string) => {
@@ -157,6 +184,26 @@ export default function Settings() {
 
       console.log("Saving settings:", { ...settings, waAccessToken: "***" });
       localStorage.setItem("tabunganku_settings", JSON.stringify(settings));
+
+      // Persist to Supabase so it shows up across devices/domains
+      if (supabase && userId) {
+        const { error } = await supabase
+          .from("user_profiles")
+          .update({
+            wa_enabled: settings.waEnabled,
+            wa_phone: settings.waPhone,
+            wa_instance_id: settings.waInstanceId,
+            wa_access_token: settings.waAccessToken,
+          })
+          .eq("id", userId);
+
+        if (error) {
+          console.error("Supabase save error:", error);
+          setMessage({ type: "error", text: "Gagal menyimpan ke server, coba lagi" });
+          setSaving(false);
+          return;
+        }
+      }
       
       // Verify settings were saved
       const saved = localStorage.getItem("tabunganku_settings");
