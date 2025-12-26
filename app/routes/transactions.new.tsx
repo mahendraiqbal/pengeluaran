@@ -15,6 +15,8 @@ export default function NewTransaction() {
   const [type, setType] = useState<"qris" | "transfer" | "withdrawal">("qris");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<string>("");
+  const [tagsInput, setTagsInput] = useState<string>("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [supabase, setSupabase] = useState<any>(null);
@@ -201,6 +203,11 @@ _Tercatat via Web App_`;
     setLoading(true);
 
     try {
+      const tagsArray = tagsInput
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => t.length > 0);
+
       const { error } = await supabase
         .from("transactions")
         .insert({
@@ -208,6 +215,8 @@ _Tercatat via Web App_`;
           type,
           amount: amountNum,
           description: description || null,
+          category: category || null,
+          tags: tagsArray.length ? tagsArray : null,
         });
 
       if (error) throw error;
@@ -312,6 +321,36 @@ _Tercatat via Web App_`;
                   placeholder="Contoh: Belanja di Indomaret"
                   rows={3}
                   style={{ resize: "vertical" }}
+                />
+              </div>
+
+              <div style={{ marginBottom: "1.5rem" }}>
+                <label className="label">Kategori</label>
+                <select
+                  className="input"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                >
+                  <option value="">Pilih kategori (opsional)</option>
+                  <option value="Makan">Makan</option>
+                  <option value="Transport">Transport</option>
+                  <option value="Belanja">Belanja</option>
+                  <option value="Tagihan">Tagihan</option>
+                  <option value="Hiburan">Hiburan</option>
+                  <option value="Kesehatan">Kesehatan</option>
+                  <option value="Pendidikan">Pendidikan</option>
+                  <option value="Lainnya">Lainnya</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: "1.5rem" }}>
+                <label className="label">Tag (Pisahkan dengan koma)</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
+                  placeholder="contoh: kerja, keluarga, promo"
                 />
               </div>
 

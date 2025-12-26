@@ -8,6 +8,8 @@ type Transaction = {
   type: "qris" | "transfer" | "withdrawal";
   amount: number;
   description: string | null;
+  category?: string | null;
+  tags?: string[] | null;
   created_at: string;
 };
 
@@ -24,10 +26,8 @@ export default function Reports() {
   const navigate = useNavigate();
   const [supabase, setSupabase] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  });
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonthNum, setSelectedMonthNum] = useState<number>(new Date().getMonth() + 1);
   const [report, setReport] = useState<MonthlyReport | null>(null);
 
   useEffect(() => {
@@ -45,7 +45,7 @@ export default function Reports() {
     if (supabase) {
       loadReport();
     }
-  }, [selectedMonth, supabase]);
+  }, [selectedYear, selectedMonthNum, supabase]);
 
   const checkUser = async (client: any) => {
     const { data: { user } } = await client.auth.getUser();
@@ -69,7 +69,8 @@ export default function Reports() {
     const { data: { user } } = await client.auth.getUser();
     if (!user) return;
 
-    const [year, month] = selectedMonth.split("-").map(Number);
+    const year = selectedYear;
+    const month = selectedMonthNum;
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0, 23, 59, 59);
 
@@ -132,43 +133,71 @@ export default function Reports() {
   const exportToCSV = () => {
     if (!report) return;
 
-    const headers = ["Tanggal", "Tipe", "Deskripsi", "Jumlah"];
-    const rows = report.transactions.map((t) => [
-      formatDate(t.created_at),
-      getTransactionLabel(t.type),
-      t.description || "-",
-      t.type === "withdrawal" ? `-${t.amount}` : t.amount.toString(),
-    ]);
+    // UTF-8 BOM agar Excel membaca karakter Indonesia dengan benar
+    const BOM = "\uFEFF";
 
-    const csvContent = [
-      `Laporan Transaksi - ${report.month} ${report.year}`,
-      "",
-      `Total Pengeluaran: ${formatCurrency(report.expense)}`,
-      `Pengeluaran Bulan Ini: ${formatCurrency(report.balance)}`,
-      "",
-      headers.join(","),
-      ...rows.map((row) => row.join(",")),
-    ].join("\n");
+    // Escape agar nilai aman untuk CSV
+    const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
 
+    const lines: string[] = [];
+
+    // Judul
+    lines.push(`Laporan Pengeluaran - ${report.month} ${report.year}`);
+    lines.push("");
+
+    // Setiap transaksi ditulis vertikal (key, value) seperti contoh
+    report.transactions.forEach((t, i) => {
+      const labelType = "Tipe Transaksi";
+      const labelAmount = "Jumlah";
+      const labelDesc = "Deskripsi";
+      const labelDate = "Tanggal";
+
+      const datePart = new Date(t.created_at).toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+      const timePart = new Date(t.created_at).toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      });
+
+      // Header kecil opsional untuk memisahkan transaksi
+      lines.push(esc(`Transaksi #${i + 1}`));
+      // Baris-baris key/value
+      lines.push(`${esc(labelType)},${esc(getTransactionLabel(t.type))}`);
+      lines.push(`${esc("Kategori")},${esc(t.category || "-")}`);
+      lines.push(`${esc(labelAmount)},${esc("-" + formatCurrency(t.amount))}`);
+      lines.push(`${esc("Tag")},${esc(Array.isArray(t.tags) && t.tags.length ? t.tags.join(", ") : "-")}`);
+      lines.push(`${esc(labelDesc)},${esc(t.description || "-")}`);
+      lines.push(`${esc(labelDate)},${esc(`${datePart}, ${timePart}`)}`);
+      lines.push(""); // spasi antar transaksi
+    });
+
+    const csvContent = BOM + lines.join("\n");
+    
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `laporan-${selectedMonth}.csv`;
+    const ym = `${selectedYear}-${String(selectedMonthNum).padStart(2, "0")}`;
+    link.download = `Laporan-Pengeluaran-${ym}.csv`;
     link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 100);
   };
 
   const generateMonthOptions = () => {
-    const options = [];
-    const now = new Date();
-    for (let i = 0; i < 12; i++) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      const monthNames = [
-        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-        "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-      ];
-      const label = `${monthNames[date.getMonth()]} ${date.getFullYear()}`;
-      options.push({ value, label });
+    const monthNames = [
+      "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+      "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+    ];
+    return monthNames.map((label, idx) => ({ value: idx + 1, label }));
+  };
+
+  const generateYearOptions = () => {
+    const options: { value: number; label: string }[] = [];
+    for (let y = 2025; y <= 2030; y++) {
+      options.push({ value: y, label: String(y) });
     }
     return options;
   };
@@ -209,9 +238,21 @@ export default function Reports() {
               <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
                 <select
                   className="input"
-                  value={selectedMonth}
-                  onChange={(e) => setSelectedMonth(e.target.value)}
-                  style={{ width: "auto", minWidth: "180px" }}
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  style={{ width: "auto", minWidth: "140px" }}
+                >
+                  {generateYearOptions().map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="input"
+                  value={selectedMonthNum}
+                  onChange={(e) => setSelectedMonthNum(Number(e.target.value))}
+                  style={{ width: "auto", minWidth: "160px" }}
                 >
                   {generateMonthOptions().map((opt) => (
                     <option key={opt.value} value={opt.value}>

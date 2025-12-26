@@ -6,6 +6,8 @@ export default [
   route("register", "routes/register.tsx"),
   route("dashboard", "routes/dashboard.tsx"),
   route("transactions/new", "routes/transactions.new.tsx"),
+  route("transactions/edit/:transactionId", "routes/transactions.edit.tsx"),
+  route("transactions/delete/:transactionId", "routes/transactions.delete.tsx"),
   route("reports", "routes/reports.tsx"),
   route("settings", "routes/settings.tsx"),
   route("share-target", "routes/share-target.tsx"),

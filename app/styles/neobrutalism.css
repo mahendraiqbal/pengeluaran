@@ -6,7 +6,10 @@
   --accent-primary: #f582ae;
   --accent-secondary: #8bd3dd;
   --accent-tertiary: #ffc43d;
+  --accent-danger: #ff6b6b;
+  --accent-success: #51cf66;
   --border: #001858;
+  --border-active: #f582ae;
   --shadow: 4px 4px 0px #001858;
   --shadow-hover: 6px 6px 0px #001858;
 }
