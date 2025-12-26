@@ -111,6 +111,12 @@ select.input {
   background-size: 1.25rem;
   padding-right: 2.5rem;
   cursor: pointer;
+  color: var(--text-primary);
+}
+
+select.input option {
+  color: var(--text-primary);
+  background: white;
 }
 
 .label {
