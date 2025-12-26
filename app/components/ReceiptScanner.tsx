@@ -418,7 +418,6 @@ export default function ReceiptScanner({ onScanComplete }: ReceiptScannerProps) 
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={handleFileSelect}
         style={{ display: "none" }}
       />
