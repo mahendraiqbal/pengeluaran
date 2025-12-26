@@ -8,9 +8,20 @@ CREATE TABLE IF NOT EXISTS transactions (
   type VARCHAR(20) NOT NULL CHECK (type IN ('qris', 'transfer', 'withdrawal')),
   amount DECIMAL(15, 2) NOT NULL,
   description TEXT,
+  category VARCHAR(50),
+  tags TEXT[],
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+-- Backfill columns if table already exists
+ALTER TABLE IF NOT EXISTS transactions
+  ADD COLUMN IF NOT EXISTS category VARCHAR(50);
+
+ALTER TABLE IF NOT EXISTS transactions
+  ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';
+
+-- Optional index for category filtering
+CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
 
 -- Create index for faster queries
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
